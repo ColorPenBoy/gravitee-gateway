@@ -17,6 +17,7 @@ package io.gravitee.gateway.services.healthcheck;
 
 import io.gravitee.definition.model.Api;
 import io.gravitee.definition.model.Endpoint;
+import io.gravitee.definition.model.EndpointGroup;
 import io.gravitee.definition.model.EndpointType;
 import io.gravitee.definition.model.endpoint.HttpEndpoint;
 import io.gravitee.definition.model.services.healthcheck.HealthCheckService;
@@ -50,6 +51,7 @@ public class EndpointHealthcheckResolver {
         // Filter to check only HTTP endpoints
         Stream<HttpEndpoint> httpEndpoints = api.getProxy().getGroups()
                 .stream()
+                .filter(group -> group.getEndpoints() != null)
                 .flatMap(group -> group.getEndpoints().stream())
                 .filter(endpoint -> endpoint.getType() == EndpointType.HTTP)
                 .map(endpoint -> (HttpEndpoint) endpoint);
@@ -72,11 +74,20 @@ public class EndpointHealthcheckResolver {
                 (endpoint.getHealthCheck() == null) ||
                         (endpoint.getHealthCheck() != null && endpoint.getHealthCheck().isEnabled()));
 
-        return httpEndpoints.map((Function<HttpEndpoint, EndpointRule>) endpoint -> new DefaultEndpointRule(
-                api.getId(),
-                endpoint,
-                (endpoint.getHealthCheck() == null || endpoint.getHealthCheck().isInherit()) ?
-                        rootHealthCheck : endpoint.getHealthCheck())).collect(Collectors.toList());
+        return httpEndpoints
+                .map((Function<HttpEndpoint, EndpointRule>) endpoint -> {
+                    final String endpointGroupName = api.getProxy().getGroups().stream()
+                            .filter(endpointGroup -> endpointGroup.getEndpoints().contains(endpoint))
+                            .map(EndpointGroup::getName)
+                            .findAny().orElse(null);
+
+                    return new DefaultEndpointRule(
+                            api.getId(),
+                            endpoint,
+                            (endpoint.getHealthCheck() == null || endpoint.getHealthCheck().isInherit()) ?
+                                    rootHealthCheck : endpoint.getHealthCheck(), endpointGroupName);
+                })
+                .collect(Collectors.toList());
     }
 
     public EndpointRule resolve(Api api, Endpoint endpoint) {
@@ -84,11 +95,16 @@ public class EndpointHealthcheckResolver {
             HttpEndpoint httpEndpoint = (HttpEndpoint) endpoint;
             HealthCheckService rootHealthCheck = api.getServices().get(HealthCheckService.class);
 
+            final String endpointGroupName = api.getProxy().getGroups().stream()
+                    .filter(endpointGroup -> endpointGroup.getEndpoints().contains(endpoint))
+                    .map(EndpointGroup::getName)
+                    .findAny().orElse(null);
+
             return new DefaultEndpointRule(
                     api.getId(),
                     endpoint,
                     (httpEndpoint.getHealthCheck() == null || httpEndpoint.getHealthCheck().isInherit()) ?
-                            rootHealthCheck : httpEndpoint.getHealthCheck());
+                            rootHealthCheck : httpEndpoint.getHealthCheck(), endpointGroupName);
         }
 
 

@@ -32,11 +32,14 @@ public class DefaultEndpointRule implements EndpointRule {
     private final String api;
     private final Endpoint endpoint;
     private final HealthCheckService service;
+    private final String endpointGroupName;
 
-    public DefaultEndpointRule(final String api, final Endpoint endpoint, final HealthCheckService service) {
+    public DefaultEndpointRule(final String api, final Endpoint endpoint, final HealthCheckService service,
+                               final String endpointGroupName) {
         this.api = api;
         this.endpoint = endpoint;
         this.service = service;
+        this.endpointGroupName = endpointGroupName;
     }
 
     @Override
@@ -57,5 +60,10 @@ public class DefaultEndpointRule implements EndpointRule {
     @Override
     public List<Step> steps() {
         return service.getSteps();
+    }
+
+    @Override
+    public String endpointGroupName() {
+        return endpointGroupName;
     }
 }

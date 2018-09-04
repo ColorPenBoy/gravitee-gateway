@@ -34,4 +34,6 @@ public interface EndpointRule {
     Trigger trigger();
 
     List<Step> steps();
+
+    String endpointGroupName();
 }
